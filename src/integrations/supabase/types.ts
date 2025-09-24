@@ -181,6 +181,59 @@ export type Database = {
           },
         ]
       }
+      app_a857ad95a4_efirs: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          description: string | null
+          efir_id: string
+          filed_at: string | null
+          generated_at: string
+          id: string
+          reason: string
+          status: string
+          tourist_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          description?: string | null
+          efir_id: string
+          filed_at?: string | null
+          generated_at?: string
+          id?: string
+          reason: string
+          status?: string
+          tourist_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          description?: string | null
+          efir_id?: string
+          filed_at?: string | null
+          generated_at?: string
+          id?: string
+          reason?: string
+          status?: string
+          tourist_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_a857ad95a4_efirs_tourist_id_fkey"
+            columns: ["tourist_id"]
+            isOneToOne: false
+            referencedRelation: "app_a857ad95a4_tourists"
+            referencedColumns: ["tourist_id"]
+          },
+        ]
+      }
       app_a857ad95a4_emergency_contacts: {
         Row: {
           created_at: string | null
