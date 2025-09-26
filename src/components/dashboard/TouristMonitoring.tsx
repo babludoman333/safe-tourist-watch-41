@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import SimpleLeafletMap from './SimpleLeafletMap';
 
 interface LocationLog {
   id: string;
@@ -32,12 +33,15 @@ interface LocationLog {
 }
 
 const TouristMonitoring: React.FC = () => {
+  console.log('TouristMonitoring component rendering...');
+  
   const [locations, setLocations] = useState<LocationLog[]>([]);
   const [filteredLocations, setFilteredLocations] = useState<LocationLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [timeFilter, setTimeFilter] = useState('24h');
   const [severityFilter, setSeverityFilter] = useState('all');
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -91,9 +95,93 @@ const TouristMonitoring: React.FC = () => {
         .gte('timestamp', timeThreshold.toISOString())
         .order('timestamp', { ascending: false });
 
-      if (error) throw error;
-
-      setLocations(data || []);
+      if (error) {
+        console.warn('Supabase error, using sample data for demonstration:', error);
+        
+        // Use sample data for demo purposes - diverse international locations
+        const sampleData = [
+          {
+            id: 'sample-1',
+            tourist_id: 'tourist-1',
+            latitude: 51.5074,
+            longitude: -0.1278,
+            timestamp: new Date().toISOString(),
+            address: 'London, United Kingdom',
+            accuracy: 'high',
+            in_restricted_zone: false,
+            app_a857ad95a4_tourists: {
+              name: 'John Smith',
+              nationality: 'USA'
+            }
+          },
+          {
+            id: 'sample-2',
+            tourist_id: 'tourist-2',
+            latitude: 48.8566,
+            longitude: 2.3522,
+            timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(), // 30 minutes ago
+            address: 'Paris, France',
+            accuracy: 'medium',
+            in_restricted_zone: true,
+            app_a857ad95a4_tourists: {
+              name: 'Maria Garcia',
+              nationality: 'Spain'
+            }
+          },
+          {
+            id: 'sample-3',
+            tourist_id: 'tourist-3',
+            latitude: 35.6762,
+            longitude: 139.6503,
+            timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+            address: 'Tokyo, Japan',
+            accuracy: 'high',
+            in_restricted_zone: false,
+            app_a857ad95a4_tourists: {
+              name: 'Hiroshi Tanaka',
+              nationality: 'Japan'
+            }
+          },
+          {
+            id: 'sample-4',
+            tourist_id: 'tourist-4',
+            latitude: -33.8688,
+            longitude: 151.2093,
+            timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(), // 4 hours ago
+            address: 'Sydney, Australia',
+            accuracy: 'high',
+            in_restricted_zone: false,
+            app_a857ad95a4_tourists: {
+              name: 'Emma Wilson',
+              nationality: 'Australia'
+            }
+          },
+          {
+            id: 'sample-5',
+            tourist_id: 'tourist-5',
+            latitude: 28.6139,
+            longitude: 77.2090,
+            timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(), // 1 hour ago
+            address: 'New Delhi, India',
+            accuracy: 'medium',
+            in_restricted_zone: true,
+            app_a857ad95a4_tourists: {
+              name: 'Raj Patel',
+              nationality: 'India'
+            }
+          }
+        ];
+        
+        setLocations(sampleData as any);
+        
+        toast({
+          title: "Demo Mode",
+          description: "Showing sample tourist data for map demonstration",
+          variant: "default",
+        });
+      } else {
+        setLocations(data || []);
+      }
     } catch (error: any) {
       console.error('Error fetching location data:', error);
       toast({
@@ -239,33 +327,18 @@ const TouristMonitoring: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Map Placeholder */}
-      <Card className="shadow-soft">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <MapPin className="h-5 w-5 mr-2 text-primary" />
-            Live Location Map
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="bg-muted/30 rounded-lg h-96 flex items-center justify-center border-2 border-dashed border-border">
-            <div className="text-center space-y-4">
-              <MapPin className="h-12 w-12 text-muted-foreground mx-auto" />
-              <div>
-                <p className="text-lg font-semibold text-foreground">Interactive Map View</p>
-                <p className="text-muted-foreground">Real-time tourist locations with clusters and heatmaps</p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Map integration (Mapbox/Leaflet) would be implemented here
-                </p>
-              </div>
-              <Button variant="outline">
-                <Navigation className="h-4 w-4 mr-2" />
-                Enable Full Map View
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Interactive Map */}
+      <SimpleLeafletMap 
+        locations={filteredLocations}
+        height="400px"
+        onLocationClick={(location) => {
+          toast({
+            title: "Tourist Location",
+            description: `${location.app_a857ad95a4_tourists?.name} - ${location.in_restricted_zone ? 'In Restricted Zone!' : 'Safe Zone'}`,
+            variant: location.in_restricted_zone ? "destructive" : "default",
+          });
+        }}
+      />
 
       {/* Location List */}
       <Card className="shadow-soft">

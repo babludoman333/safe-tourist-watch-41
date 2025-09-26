@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Leaflet Map Styles */
+.leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.leaflet-control-attribution {
+  font-size: 10px !important;
+}
+
 /* Professional Admin Dashboard Design System
 All colors MUST be HSL.
 */
