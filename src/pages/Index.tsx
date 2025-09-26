@@ -5,6 +5,7 @@ import LoginPage from '@/components/auth/LoginPage';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import DashboardHome from '@/components/dashboard/DashboardHome';
 import TouristMonitoring from '@/components/dashboard/TouristMonitoring';
+import SosIncidentsPage from '@/components/dashboard/SosIncidentsPage';
 import { useToast } from '@/hooks/use-toast';
 
 const Index = () => {
@@ -65,12 +66,7 @@ const Index = () => {
           </div>
         );
       case 'incidents':
-        return (
-          <div className="text-center py-12">
-            <h2 className="text-2xl font-bold mb-4">SOS & Incidents</h2>
-            <p className="text-muted-foreground">Incident response system coming soon...</p>
-          </div>
-        );
+        return <SosIncidentsPage />;
       case 'efirs':
         return (
           <div className="text-center py-12">

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -39,60 +39,23 @@ const TouristMonitoring: React.FC = () => {
   const [filteredLocations, setFilteredLocations] = useState<LocationLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [timeFilter, setTimeFilter] = useState('24h');
+  const [timeFilter, setTimeFilter] = useState('all');
   const [severityFilter, setSeverityFilter] = useState('all');
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchLocationData();
-    
-    // Set up real-time subscription for location updates
-    const channel = supabase
-      .channel('location-monitoring')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'app_a857ad95a4_location_logs' },
-        () => fetchLocationData()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [timeFilter]);
-
-  useEffect(() => {
-    filterLocations();
-  }, [locations, searchTerm, severityFilter]);
-
-  const fetchLocationData = async () => {
+  const fetchLocationData = useCallback(async () => {
     try {
       setLoading(true);
       
-      // Calculate time filter
-      const now = new Date();
-      const timeThreshold = new Date();
-      switch (timeFilter) {
-        case '1h':
-          timeThreshold.setHours(now.getHours() - 1);
-          break;
-        case '24h':
-          timeThreshold.setHours(now.getHours() - 24);
-          break;
-        case '7d':
-          timeThreshold.setDate(now.getDate() - 7);
-          break;
-        default:
-          timeThreshold.setHours(now.getHours() - 24);
-      }
-
+      // Get the latest location for each tourist by using a window function approach
+      // First, we'll get all locations and then filter to latest on the frontend
       const { data, error } = await supabase
         .from('app_a857ad95a4_location_logs')
         .select(`
           *,
-          app_a857ad95a4_tourists(name, nationality)
+          app_a857ad95a4_tourists(name, nationality, tourist_id)
         `)
-        .gte('timestamp', timeThreshold.toISOString())
         .order('timestamp', { ascending: false });
 
       if (error) {
@@ -180,7 +143,27 @@ const TouristMonitoring: React.FC = () => {
           variant: "default",
         });
       } else {
-        setLocations(data || []);
+        // Group by tourist_id and keep only the latest location for each tourist
+        const latestLocations = (data || []).reduce((acc: LocationLog[], location: LocationLog) => {
+          const existingIndex = acc.findIndex(l => l.tourist_id === location.tourist_id);
+          
+          if (existingIndex === -1) {
+            // First location for this tourist
+            acc.push(location);
+          } else {
+            // Compare timestamps and keep the more recent one
+            const existingTimestamp = new Date(acc[existingIndex].timestamp).getTime();
+            const currentTimestamp = new Date(location.timestamp).getTime();
+            
+            if (currentTimestamp > existingTimestamp) {
+              acc[existingIndex] = location;
+            }
+          }
+          
+          return acc;
+        }, []);
+
+        setLocations(latestLocations);
       }
     } catch (error: any) {
       console.error('Error fetching location data:', error);
@@ -192,9 +175,9 @@ const TouristMonitoring: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  const filterLocations = () => {
+  const filterLocations = useCallback(() => {
     let filtered = locations;
 
     // Filter by search term (tourist name)
@@ -216,8 +199,53 @@ const TouristMonitoring: React.FC = () => {
       }
     }
 
+    // Apply time filter
+    if (timeFilter !== 'all') {
+      const now = new Date();
+      const timeThreshold = new Date();
+      
+      switch (timeFilter) {
+        case '1h':
+          timeThreshold.setHours(now.getHours() - 1);
+          break;
+        case '24h':
+          timeThreshold.setHours(now.getHours() - 24);
+          break;
+        case '7d':
+          timeThreshold.setDate(now.getDate() - 7);
+          break;
+        default:
+          timeThreshold.setHours(now.getHours() - 24);
+      }
+      
+      filtered = filtered.filter(location => 
+        new Date(location.timestamp) >= timeThreshold
+      );
+    }
+
     setFilteredLocations(filtered);
-  };
+  }, [locations, searchTerm, severityFilter, timeFilter]);
+
+  useEffect(() => {
+    fetchLocationData();
+    
+    // Set up real-time subscription for location updates
+    const channel = supabase
+      .channel('location-monitoring')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'app_a857ad95a4_location_logs' },
+        () => fetchLocationData()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchLocationData]);
+
+  useEffect(() => {
+    filterLocations();
+  }, [filterLocations]);
 
   const getLocationStatus = (location: LocationLog) => {
     if (location.in_restricted_zone) {
@@ -257,16 +285,6 @@ const TouristMonitoring: React.FC = () => {
     return `${minutes}m ago`;
   };
 
-  // Group locations by tourist to show latest position
-  const latestLocationsByTourist = filteredLocations.reduce((acc, location) => {
-    const existing = acc.find(l => l.tourist_id === location.tourist_id);
-    if (!existing || new Date(location.timestamp) > new Date(existing.timestamp)) {
-      acc = acc.filter(l => l.tourist_id !== location.tourist_id);
-      acc.push(location);
-    }
-    return acc;
-  }, [] as LocationLog[]);
-
   return (
     <div className="space-y-6">
       {/* Header and Controls */}
@@ -302,6 +320,7 @@ const TouristMonitoring: React.FC = () => {
                 <SelectValue placeholder="Time range" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">All time</SelectItem>
                 <SelectItem value="1h">Last 1 hour</SelectItem>
                 <SelectItem value="24h">Last 24 hours</SelectItem>
                 <SelectItem value="7d">Last 7 days</SelectItem>
@@ -321,7 +340,7 @@ const TouristMonitoring: React.FC = () => {
             
             <div className="flex items-center space-x-2 text-sm text-muted-foreground">
               <Filter className="h-4 w-4" />
-              <span>{latestLocationsByTourist.length} tourists</span>
+              <span>{filteredLocations.length} tourists</span>
             </div>
           </div>
         </CardContent>
@@ -349,7 +368,7 @@ const TouristMonitoring: React.FC = () => {
               Current Tourist Positions
             </div>
             <Badge variant="secondary">
-              {latestLocationsByTourist.length} active
+              {filteredLocations.length} active
             </Badge>
           </CardTitle>
         </CardHeader>
@@ -362,9 +381,9 @@ const TouristMonitoring: React.FC = () => {
                 </div>
               ))}
             </div>
-          ) : latestLocationsByTourist.length > 0 ? (
+          ) : filteredLocations.length > 0 ? (
             <div className="space-y-4">
-              {latestLocationsByTourist.map((location) => {
+              {filteredLocations.map((location) => {
                 const status = getLocationStatus(location);
                 
                 return (
