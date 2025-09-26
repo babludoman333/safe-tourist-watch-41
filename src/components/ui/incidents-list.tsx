@@ -49,7 +49,53 @@ const IncidentsList: React.FC<IncidentsListProps> = ({ incidents, loading, onUpd
   const [severityFilter, setSeverityFilter] = useState('all');
   const [sortBy, setSortBy] = useState('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Update incident status
+  const updateIncidentStatus = async (incidentId: string, newStatus: string) => {
+    setUpdatingStatus(incidentId);
+    try {
+      const updateData: {
+        status: string;
+        resolved_at?: string | null;
+      } = {
+        status: newStatus
+      };
+      
+      // If marking as resolved, set resolved_at timestamp
+      if (newStatus === 'resolved') {
+        updateData.resolved_at = new Date().toISOString();
+      } else if (newStatus !== 'resolved') {
+        updateData.resolved_at = null;
+      }
+
+      const { error } = await supabase
+        .from('app_a857ad95a4_incidents')
+        .update(updateData)
+        .eq('id', incidentId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Status Updated",
+        description: `Incident marked as ${newStatus}`,
+        variant: "default",
+      });
+
+      // Refresh the incidents list
+      onUpdate();
+    } catch (error: unknown) {
+      console.error('Error updating incident status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update incident status",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
 
   const filteredAndSortedIncidents = useMemo(() => {
     let filtered = incidents;
@@ -136,37 +182,6 @@ const IncidentsList: React.FC<IncidentsListProps> = ({ incidents, loading, onUpd
     if (days > 0) return `${days}d ago`;
     if (hours > 0) return `${hours}h ago`;
     return `${minutes}m ago`;
-  };
-
-  const handleStatusUpdate = async (incidentId: string, newStatus: string) => {
-    try {
-      const updateData: { status: string; resolved_at?: string } = { status: newStatus };
-      
-      if (newStatus === 'resolved') {
-        updateData.resolved_at = new Date().toISOString();
-      }
-
-      const { error } = await supabase
-        .from('app_a857ad95a4_incidents')
-        .update(updateData)
-        .eq('id', incidentId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Status Updated",
-        description: `Incident status updated to ${newStatus}`,
-      });
-      
-      onUpdate();
-    } catch (error: unknown) {
-      console.error('Error updating incident status:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update incident status",
-        variant: "destructive",
-      });
-    }
   };
 
   const handleSort = (field: string) => {
@@ -296,20 +311,33 @@ const IncidentsList: React.FC<IncidentsListProps> = ({ incidents, loading, onUpd
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleStatusUpdate(incident.id, 'in_review')}
+                              onClick={() => updateIncidentStatus(incident.id, 'in_review')}
+                              disabled={updatingStatus === incident.id}
                               className="text-xs"
                             >
-                              Start Review
+                              {updatingStatus === incident.id ? 'Updating...' : 'Start Review'}
                             </Button>
                           )}
                           {incident.status === 'in_review' && (
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleStatusUpdate(incident.id, 'resolved')}
+                              onClick={() => updateIncidentStatus(incident.id, 'resolved')}
+                              disabled={updatingStatus === incident.id}
                               className="text-xs"
                             >
-                              Mark Resolved
+                              {updatingStatus === incident.id ? 'Resolving...' : 'Mark Resolved'}
+                            </Button>
+                          )}
+                          {(incident.status === 'pending' || incident.status === 'in_review') && (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => updateIncidentStatus(incident.id, 'resolved')}
+                              disabled={updatingStatus === incident.id}
+                              className="text-xs bg-green-600 hover:bg-green-700"
+                            >
+                              {updatingStatus === incident.id ? 'Resolving...' : 'Resolve Now'}
                             </Button>
                           )}
                         </div>

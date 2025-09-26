@@ -161,15 +161,35 @@ const SosIncidentsPage: React.FC = () => {
     };
   }, [fetchData, fetchSosAlerts, fetchIncidents]);
 
-  // Filter active (unresolved) SOS alerts
-  const activeSosAlerts = sosAlerts.filter(alert => 
-    alert.severity === 'high' && !alert.is_read
-  );
+  // Filter active (unresolved) SOS alerts (last 24 hours for dashboard)
+  const activeSosAlerts = sosAlerts.filter(alert => {
+    const isActiveAlert = alert.severity === 'high' && !alert.is_read;
+    
+    // For SOS dashboard, show alerts from last 24 hours
+    if (activeTab === 'sos') {
+      const alertTime = new Date(alert.created_at);
+      const twentyFourHoursAgo = new Date();
+      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+      return isActiveAlert && alertTime >= twentyFourHoursAgo;
+    }
+    
+    return isActiveAlert;
+  });
 
-  // Filter pending incidents
-  const pendingIncidents = incidents.filter(incident => 
-    incident.status === 'pending' || incident.status === 'in_review'
-  );
+  // Filter pending incidents (last 24 hours for dashboard)
+  const pendingIncidents = incidents.filter(incident => {
+    const isRecentIncident = incident.status === 'pending' || incident.status === 'in_review';
+    
+    // For SOS dashboard, show incidents from last 24 hours
+    if (activeTab === 'sos') {
+      const incidentTime = new Date(incident.created_at);
+      const twentyFourHoursAgo = new Date();
+      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+      return isRecentIncident && incidentTime >= twentyFourHoursAgo;
+    }
+    
+    return isRecentIncident;
+  });
 
   const getEmergencyEvents = () => {
     const events = [];
