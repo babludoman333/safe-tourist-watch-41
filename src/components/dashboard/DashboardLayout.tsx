@@ -1,42 +1,48 @@
 import React, { useState } from 'react';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { 
-  Home, 
+  Shield, 
   Users, 
   MapPin, 
   AlertTriangle, 
   FileText, 
-  LogOut, 
-  Menu, 
-  X,
-  Bell,
-  Shield
+  BarChart3, 
+  LogOut,
+  Menu,
+  Bell
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-const DashboardLayout: React.FC = () => {
+interface DashboardLayoutProps {
+  children: React.ReactNode;
+  currentView: string;
+  onViewChange: (view: string) => void;
+  onLogout: () => void;
+}
+
+const DashboardLayout: React.FC<DashboardLayoutProps> = ({
+  children,
+  currentView,
+  onViewChange,
+  onLogout
+}) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const navigate = useNavigate();
-  const location = useLocation();
   const { toast } = useToast();
 
-  const menuItems = [
-    { icon: Home, label: 'Dashboard', path: '/dashboard', badge: null },
-    { icon: MapPin, label: 'Tourist Monitoring', path: '/dashboard/monitoring', badge: null },
-    { icon: Users, label: 'Tourist Records', path: '/dashboard/tourists', badge: null },
-    { icon: Shield, label: 'SOS Incidents', path: '/dashboard/sos', badge: '3' },
-    { icon: FileText, label: 'E-FIR Management', path: '/dashboard/efir', badge: '2' },
-    { icon: AlertTriangle, label: 'Hazard Management', path: '/dashboard/hazards', badge: null },
+  const navigation = [
+    { id: 'dashboard', name: 'Dashboard', icon: BarChart3 },
+    { id: 'monitoring', name: 'Tourist Monitoring', icon: MapPin },
+    { id: 'tourists', name: 'Tourist Records', icon: Users },
+    { id: 'incidents', name: 'SOS & Incidents', icon: AlertTriangle },
+    { id: 'efirs', name: 'E-FIR Management', icon: FileText },
+    { id: 'hazards', name: 'Hazard Management', icon: Shield },
   ];
 
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
-      navigate('/');
+      onLogout();
       toast({
         title: "Logged out",
         description: "You have been successfully logged out",
@@ -74,31 +80,24 @@ const DashboardLayout: React.FC = () => {
         {/* Navigation */}
         <nav className="mt-6 px-3">
           <div className="space-y-1">
-            {menuItems.map((item) => {
+            {navigation.map((item) => {
               const Icon = item.icon;
-              const isActive = currentPath === item.path;
+              const isActive = currentView === item.id;
               
               return (
                 <button
-                  key={item.path}
-                  onClick={() => navigate(item.path)}
-                  className={`w-full flex items-center justify-between px-4 py-3 text-left rounded-lg transition-all duration-200 group ${
+                  key={item.id}
+                  onClick={() => onViewChange(item.id)}
+                  className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-all duration-200 group ${
                     isActive 
                       ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-soft' 
                       : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
                   }`}
                 >
-                  <div className="flex items-center">
-                    <Icon className={`h-5 w-5 mr-3 transition-colors ${
-                      isActive ? 'text-sidebar-primary' : 'text-sidebar-foreground/60 group-hover:text-sidebar-foreground'
-                    }`} />
-                    <span className="font-medium">{item.label}</span>
-                  </div>
-                  {item.badge && (
-                    <Badge variant="destructive" className="text-xs">
-                      {item.badge}
-                    </Badge>
-                  )}
+                  <Icon className={`h-5 w-5 mr-3 transition-colors ${
+                    isActive ? 'text-sidebar-primary' : 'text-sidebar-foreground/60 group-hover:text-sidebar-foreground'
+                  }`} />
+                  <span className="font-medium">{item.name}</span>
                 </button>
               );
             })}
@@ -134,7 +133,7 @@ const DashboardLayout: React.FC = () => {
             
             <div>
               <h2 className="text-xl font-semibold text-foreground">
-                {menuItems.find(item => item.path === currentPath)?.label || 'Dashboard'}
+                {navigation.find(item => item.id === currentView)?.name || 'Dashboard'}
               </h2>
               <p className="text-sm text-muted-foreground">
                 Real-time tourism safety monitoring
@@ -158,7 +157,7 @@ const DashboardLayout: React.FC = () => {
 
         {/* Page Content */}
         <main className="p-6">
-          <Outlet />
+          {children}
         </main>
       </div>
 
