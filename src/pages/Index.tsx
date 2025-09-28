@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import LoginPage from '@/components/auth/LoginPage';
-import DashboardLayout from '@/components/dashboard/DashboardLayout';
-import DashboardHome from '@/components/dashboard/DashboardHome';
-import TouristMonitoring from '@/components/dashboard/TouristMonitoring';
-import SosIncidentsPage from '@/components/dashboard/SosIncidentsPage';
 import { useToast } from '@/hooks/use-toast';
+
+// Lazy load components for better code splitting
+const LoginPage = lazy(() => import('@/components/auth/LoginPage'));
+const DashboardLayout = lazy(() => import('@/components/dashboard/DashboardLayout'));
+const DashboardHome = lazy(() => import('@/components/dashboard/DashboardHome'));
+const TouristMonitoring = lazy(() => import('@/components/dashboard/TouristMonitoring'));
+const SosIncidentsPage = lazy(() => import('@/components/dashboard/SosIncidentsPage'));
 
 const Index = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -97,19 +99,37 @@ const Index = () => {
     );
   }
 
+  // Loading fallback component
+  const LoadingFallback = () => (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+        <p className="text-sm text-muted-foreground">Loading...</p>
+      </div>
+    </div>
+  );
+
   if (!user) {
-    return <LoginPage onAuthSuccess={handleAuthSuccess} />;
+    return (
+      <Suspense fallback={<LoadingFallback />}>
+        <LoginPage onAuthSuccess={handleAuthSuccess} />
+      </Suspense>
+    );
   }
 
   return (
     <div className="dark min-h-screen bg-background">
-      <DashboardLayout
-        currentView={currentView}
-        onViewChange={setCurrentView}
-        onLogout={handleLogout}
-      >
-        {renderCurrentView()}
-      </DashboardLayout>
+      <Suspense fallback={<LoadingFallback />}>
+        <DashboardLayout
+          currentView={currentView}
+          onViewChange={setCurrentView}
+          onLogout={handleLogout}
+        >
+          <Suspense fallback={<LoadingFallback />}>
+            {renderCurrentView()}
+          </Suspense>
+        </DashboardLayout>
+      </Suspense>
     </div>
   );
 };

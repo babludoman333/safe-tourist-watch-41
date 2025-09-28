@@ -15,4 +15,30 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Core React libraries
+          'react-vendor': ['react', 'react-dom'],
+          
+          // UI component libraries  
+          'ui-vendor': ['lucide-react', '@radix-ui/react-slot', '@radix-ui/react-toast'],
+          
+          // Map related libraries (largest dependencies)
+          'map-vendor': ['leaflet'],
+          
+          // Supabase and auth
+          'supabase-vendor': ['@supabase/supabase-js'],
+          
+          // Utility libraries
+          'utils-vendor': ['clsx', 'tailwind-merge', 'class-variance-authority']
+        }
+      }
+    },
+    // Increase chunk size warning limit to reduce noise
+    chunkSizeWarningLimit: 1000,
+    // Optimize for production
+    minify: 'esbuild',
+  },
 }));

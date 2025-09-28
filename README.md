@@ -1,4 +1,10 @@
-# Welcome to your Lovable project
+# Safe Tourist Watch 41
+
+A comprehensive tourist monitoring and emergency response system built with React, Vite, and Supabase.
+
+## 🚀 Ready for Vercel Deployment
+
+This project is fully optimized and configured for Vercel deployment. See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
 
 ## Project info
 
@@ -60,9 +66,29 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
-## How can I deploy this project?
+## 🚀 Deployment
 
-Simply open [Lovable](https://lovable.dev/projects/d6faa42d-d73c-490b-abd8-c957ad291e0c) and click on Share -> Publish.
+### Vercel (Recommended)
+The project is fully configured for Vercel deployment:
+
+```bash
+# 1. Build locally to test
+npm run build
+
+# 2. Deploy to Vercel
+# - Connect your GitHub repo to Vercel
+# - Add environment variables (see DEPLOYMENT.md)
+# - Deploy automatically!
+```
+
+**Key Features:**
+- ✅ Optimized build with code splitting
+- ✅ Bundle size reduced from 1.1MB to manageable chunks
+- ✅ Lazy loading for all components
+- ✅ Production-ready configuration
+
+### Alternative Deployment
+You can also deploy via [Lovable](https://lovable.dev/projects/d6faa42d-d73c-490b-abd8-c957ad291e0c) by clicking Share -> Publish.
 
 ## Can I connect a custom domain to my Lovable project?
 

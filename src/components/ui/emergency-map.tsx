@@ -1,28 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import {
   AlertOctagon,
   AlertTriangle,
   Phone,
   MapPin,
   Clock,
-  Filter,
   Layers
 } from 'lucide-react';
-
-// Fix Leaflet default markers
-delete (L.Icon.Default.prototype as L.Icon & { _getIconUrl?: () => void })._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-});
+import L from 'leaflet';
 
 interface EmergencyEvent {
   id: string;
@@ -49,65 +38,13 @@ interface EmergencyMapProps {
   onEventSelect?: (event: EmergencyEvent) => void;
 }
 
-// Custom marker icons with color coding
-const createCustomIcon = (type: 'sos' | 'incident', status: string) => {
-  let color = '#94a3b8'; // Default gray
-  let icon = '🔴';
+// Pure Leaflet implementation - no react-leaflet dependencies
 
-  if (type === 'sos') {
-    icon = '🚨';
-    color = status === 'resolved' ? '#10b981' : '#ef4444'; // Green if resolved, red if active
-  } else if (type === 'incident') {
-    icon = '⚠️';
-    color = status === 'resolved' ? '#10b981' : '#f97316'; // Green if resolved, orange if active
-  }
-
-  return L.divIcon({
-    className: 'custom-marker',
-    html: `
-      <div style="
-        width: 40px;
-        height: 40px;
-        background-color: ${color};
-        border: 3px solid white;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 18px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        ${status !== 'resolved' ? 'animation: pulse 2s infinite;' : ''}
-      ">
-        ${icon}
-      </div>
-      <style>
-        @keyframes pulse {
-          0% { box-shadow: 0 0 0 0 ${color}66; }
-          70% { box-shadow: 0 0 0 10px transparent; }
-          100% { box-shadow: 0 0 0 0 transparent; }
-        }
-      </style>
-    `,
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
-    popupAnchor: [0, -20]
-  });
-};
-
-const MapController: React.FC<{ events: EmergencyEvent[] }> = ({ events }) => {
-  const map = useMap();
-
-  useEffect(() => {
-    if (events.length > 0) {
-      const bounds = L.latLngBounds(events.map(event => [event.latitude, event.longitude]));
-      map.fitBounds(bounds, { padding: [20, 20] });
-    }
-  }, [events, map]);
-
-  return null;
-};
-
+// Pure Leaflet implementation - no react-leaflet dependencies
 const EmergencyMap: React.FC<EmergencyMapProps> = ({ emergencyEvents, loading, onEventSelect }) => {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const leafletMapRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<L.Marker[]>([]);
   const [typeFilter, setTypeFilter] = useState<'all' | 'sos' | 'incident'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'resolved'>('all');
   const [severityFilter, setSeverityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
@@ -145,6 +82,87 @@ const EmergencyMap: React.FC<EmergencyMapProps> = ({ emergencyEvents, loading, o
     
     return <Badge variant="default">Open Incident</Badge>;
   };
+
+  // Initialize map with pure Leaflet
+  useEffect(() => {
+    if (!mapRef.current || leafletMapRef.current) return;
+
+    try {
+      const map = L.map(mapRef.current, {
+        center: [25.2048, 55.2708], // Dubai coordinates
+        zoom: 11,
+        zoomControl: true
+      });
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19
+      }).addTo(map);
+
+      leafletMapRef.current = map;
+    } catch (error) {
+      console.error('Error initializing emergency map:', error);
+    }
+
+    return () => {
+      if (leafletMapRef.current) {
+        leafletMapRef.current.remove();
+        leafletMapRef.current = null;
+      }
+    };
+  }, []);
+
+  // Update markers when events change
+  useEffect(() => {
+    if (!leafletMapRef.current) return;
+
+    // Clear existing markers
+    markersRef.current.forEach(marker => {
+      leafletMapRef.current?.removeLayer(marker);
+    });
+    markersRef.current = [];
+
+    // Add new markers
+    filteredEvents.forEach(event => {
+      if (!leafletMapRef.current) return;
+
+      const iconColor = event.status === 'resolved' ? 'green' : 
+                       event.type === 'sos' ? 'red' : 'orange';
+
+      const customIcon = L.divIcon({
+        className: 'custom-div-icon',
+        html: `<div style="background-color: ${iconColor}; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+      });
+
+      const marker = L.marker([event.latitude, event.longitude], {
+        icon: customIcon
+      }).addTo(leafletMapRef.current);
+
+      const popupContent = `
+        <div style="min-width: 250px;">
+          <h4 style="margin: 0 0 8px 0; font-weight: bold;">
+            ${event.type === 'sos' ? '🚨 SOS Alert' : '⚠️ Incident Report'}
+          </h4>
+          <p style="margin: 4px 0;"><strong>Location:</strong> ${event.latitude.toFixed(6)}, ${event.longitude.toFixed(6)}</p>
+          <p style="margin: 4px 0;"><strong>Time:</strong> ${formatTimeAgo(event.created_at)}</p>
+          ${event.tourist_info?.name ? `<p style="margin: 4px 0;"><strong>Tourist:</strong> ${event.tourist_info.name}</p>` : ''}
+          ${event.description ? `<p style="margin: 4px 0;"><strong>Description:</strong> ${event.description}</p>` : ''}
+          ${event.severity ? `<p style="margin: 4px 0;"><strong>Severity:</strong> ${event.severity}</p>` : ''}
+          <p style="margin: 4px 0;"><strong>Status:</strong> ${event.status}</p>
+        </div>
+      `;
+
+      marker.bindPopup(popupContent);
+      
+      marker.on('click', () => {
+        onEventSelect?.(event);
+      });
+
+      markersRef.current.push(marker);
+    });
+  }, [filteredEvents, onEventSelect]);
 
   const handleCallTourist = (phone?: string) => {
     if (phone) {
@@ -238,102 +256,11 @@ const EmergencyMap: React.FC<EmergencyMapProps> = ({ emergencyEvents, loading, o
                 </div>
               </div>
             ) : (
-              <MapContainer
-                center={[25.2048, 55.2708]} // Dubai coordinates as default
-                zoom={11}
-                className="w-full h-full"
-                zoomControl={true}
-              >
-                <TileLayer
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                />
-                
-                <MapController events={filteredEvents} />
-                
-                {filteredEvents.map((event) => (
-                  <Marker
-                    key={event.id}
-                    position={[event.latitude, event.longitude]}
-                    icon={createCustomIcon(event.type, event.status)}
-                    eventHandlers={{
-                      click: () => onEventSelect?.(event)
-                    }}
-                  >
-                    <Popup maxWidth={300}>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-semibold text-lg">
-                            {event.type === 'sos' ? '🚨 SOS Alert' : '⚠️ Incident Report'}
-                          </h4>
-                          {getStatusBadge(event.status, event.type)}
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <div className="flex items-center text-sm">
-                            <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
-                            <span>{event.latitude.toFixed(6)}, {event.longitude.toFixed(6)}</span>
-                          </div>
-                          
-                          <div className="flex items-center text-sm">
-                            <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                            <span>{formatTimeAgo(event.created_at)}</span>
-                          </div>
-                          
-                          {event.tourist_info?.name && (
-                            <div className="font-medium">
-                              Tourist: {event.tourist_info.name}
-                            </div>
-                          )}
-                          
-                          {event.description && (
-                            <p className="text-sm text-muted-foreground">
-                              {event.description}
-                            </p>
-                          )}
-                          
-                          {event.severity && (
-                            <Badge 
-                              variant={event.severity === 'high' ? 'destructive' : 
-                                       event.severity === 'medium' ? 'default' : 'secondary'}
-                            >
-                              {event.severity} Severity
-                            </Badge>
-                          )}
-                        </div>
-                        
-                        {event.status !== 'resolved' && (
-                          <div className="flex space-x-2 pt-2 border-t">
-                            {event.tourist_info?.phone && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleCallTourist(event.tourist_info?.phone)}
-                                className="flex-1"
-                              >
-                                <Phone className="h-3 w-3 mr-1" />
-                                Call Tourist
-                              </Button>
-                            )}
-                            
-                            {event.tourist_info?.emergency_contact && (
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => handleCallEmergency(event.tourist_info?.emergency_contact)}
-                                className="flex-1"
-                              >
-                                <Phone className="h-3 w-3 mr-1" />
-                                Emergency
-                              </Button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </Popup>
-                  </Marker>
-                ))}
-              </MapContainer>
+              <div 
+                ref={mapRef}
+                className="w-full h-full rounded-lg"
+                style={{ minHeight: '600px' }}
+              />
             )}
           </div>
         </CardContent>
